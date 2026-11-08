@@ -1,0 +1,373 @@
+
+.gamification-panel {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.gamification-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.gamification-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 7px 0;
+}
+
+.gamification-subtitle {
+  color: var(--muted, #9299a8);
+  font-size: 13px;
+  margin: 0;
+}
+
+.leaderboard-count {
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: rgba(120, 100, 255, 0.12);
+  color: #a99aff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.my-rank-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(130, 110, 255, 0.25);
+  border-radius: 14px;
+  background: rgba(120, 100, 255, 0.08);
+}
+
+.my-rank-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #b9a9ff;
+  background: rgba(120, 100, 255, 0.18);
+}
+
+.my-rank-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-rank-details span {
+  font-size: 12px;
+  color: var(--muted, #9299a8);
+}
+
+.my-rank-details strong {
+  font-size: 17px;
+}
+
+.my-rank-xp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #e9b84c;
+}
+
+.top-students {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.top-student-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 9px;
+  padding: 19px 10px;
+  border: 1px solid var(--border, #303747);
+  border-radius: 15px;
+  background: var(--surface, #171d29);
+  min-width: 0;
+}
+
+.top-student-card.rank-1 {
+  border-color: rgba(240, 190, 75, 0.55);
+  background: rgba(240, 190, 75, 0.07);
+}
+
+.top-student-card.rank-2 {
+  border-color: rgba(170, 180, 195, 0.45);
+}
+
+.top-student-card.rank-3 {
+  border-color: rgba(190, 130, 90, 0.45);
+}
+
+.top-student-medal {
+  color: #e8b94e;
+}
+
+.rank-2 .top-student-medal {
+  color: #b8c1d0;
+}
+
+.rank-3 .top-student-medal {
+  color: #c48a65;
+}
+
+.student-avatar,
+.leaderboard-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(125, 105, 255, 0.18);
+  color: #c2b6ff;
+  font-weight: 700;
+}
+
+.student-avatar {
+  width: 43px;
+  height: 43px;
+  font-size: 17px;
+}
+
+.top-student-card > strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.student-rank-label {
+  color: var(--muted, #9299a8);
+  font-size: 12px;
+}
+
+.student-xp,
+.leaderboard-points {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e8b94e;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.top-student-card small {
+  color: var(--muted, #9299a8);
+  font-size: 11px;
+}
+
+.leaderboard-list h4 {
+  margin: 0 0 12px;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 10px;
+  border-bottom: 1px solid var(--border, #303747);
+}
+
+.leaderboard-row:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-row.current-student {
+  background: rgba(120, 100, 255, 0.09);
+  border-radius: 10px;
+}
+
+.leaderboard-position {
+  width: 34px;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--muted, #9299a8);
+  font-size: 13px;
+}
+
+.leaderboard-avatar {
+  width: 37px;
+  height: 37px;
+  font-size: 14px;
+}
+
+.leaderboard-student-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.leaderboard-student-info strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.leaderboard-student-info small {
+  color: var(--muted, #9299a8);
+  font-size: 11px;
+}
+
+.leaderboard-points {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.gamification-empty {
+  text-align: center;
+  padding: 35px 15px;
+  color: var(--muted, #9299a8);
+}
+
+.gamification-empty h4 {
+  color: inherit;
+  margin: 12px 0 6px;
+}
+
+.gamification-empty p {
+  font-size: 13px;
+  margin: 0;
+}
+
+.achievement-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.achievement-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(120, 100, 255, 0.08);
+}
+
+.achievement-summary strong {
+  font-size: 20px;
+}
+
+.achievement-summary span {
+  font-size: 11px;
+  color: var(--muted, #9299a8);
+}
+
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.achievement-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px;
+  border: 1px solid var(--border, #303747);
+  border-radius: 13px;
+  min-width: 0;
+}
+
+.achievement-earned {
+  background: rgba(120, 100, 255, 0.07);
+  border-color: rgba(130, 110, 255, 0.35);
+}
+
+.achievement-locked {
+  opacity: 0.65;
+}
+
+.achievement-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(120, 100, 255, 0.14);
+  font-size: 22px;
+}
+
+.achievement-info {
+  min-width: 0;
+}
+
+.achievement-info h4 {
+  font-size: 13px;
+  margin: 0 0 5px;
+}
+
+.achievement-info p {
+  font-size: 11px;
+  color: var(--muted, #9299a8);
+  margin: 0 0 7px;
+}
+
+.achievement-info small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #79c99b;
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .gamification-panel {
+    padding: 16px;
+  }
+
+  .top-students {
+    grid-template-columns: 1fr;
+  }
+
+  .top-student-card {
+    display: grid;
+    grid-template-columns: 32px 40px minmax(0, 1fr) auto;
+    text-align: left;
+    justify-items: start;
+    padding: 12px;
+  }
+
+  .top-student-card .student-rank-label,
+  .top-student-card small {
+    display: none;
+  }
+
+  .top-student-card .student-xp {
+    grid-column: 3 / 5;
+  }
+
+  .achievement-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .achievement-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .my-rank-card {
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .leaderboard-row {
+    gap: 8px;
+    padding: 12px 5px;
+  }
+
+  .leaderboard-points {
+    font-size: 11px;
+  }
+}

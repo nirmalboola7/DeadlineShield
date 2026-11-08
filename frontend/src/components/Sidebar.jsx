@@ -10,7 +10,7 @@ const links = [
 
 export default function Sidebar({ user, onLogout }) {
   return <aside className="sidebar">
-    <div className="brand"><div className="brand-icon"><ShieldCheck size={22}/></div><div><b>DeadlineShield</b><small>STUDENT WORKSPACE</small></div></div>
+    <div className="brand"><div className="brand-icon"><ShieldCheck size={22}/></div><div><b>LEARNOVA</b><small>STUDENT WORKSPACE</small></div></div>
     <div className="side-label">WORKSPACE</div>
     <nav>{links.map(({to,label,icon:Icon}) => <NavLink key={to} to={to} end={to === '/'} className={({isActive}) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={18}/>{label}</NavLink>)}</nav>
     <div className="sidebar-bottom">
@@ -19,3 +19,4 @@ export default function Sidebar({ user, onLogout }) {
     </div>
   </aside>;
 }
+

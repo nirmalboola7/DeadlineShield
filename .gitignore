@@ -8,3 +8,12 @@ dist/
 backend/data/db.json
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+backend/data/*.backup
+backend/data/*.tmp
+backend/data/db.backup.json
+# Local backup CSS files
+frontend/src/App.backup*.css
+
+# Accidental root npm lockfile
+/package-lock.json
