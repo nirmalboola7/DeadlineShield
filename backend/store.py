@@ -71,14 +71,23 @@ _DEFAULT = {
 
 
 def get_connection():
-    """Create a connection to the LEARNOVA MySQL database."""
+    """Create a secure connection to the TiDB Cloud database."""
+
+    ca_path = os.path.join(
+        BASE_DIR,
+        "certs",
+        "tidb-ca.pem"
+    )
 
     return mysql.connector.connect(
-        host=os.getenv("DB_HOST", "127.0.0.1"),
-        port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD", ""),
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT", "4000")),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
         database=os.getenv("DB_NAME", "learnova_db"),
+        ssl_ca=ca_path,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,
         autocommit=False
     )
 
@@ -151,10 +160,10 @@ def read_db():
 
 def write_db(data):
     """
-    Synchronize the supplied application data with MySQL.
+    Synchronize application data with MySQL.
 
     Existing records are updated, new records are inserted,
-    and records removed from the supplied data are deleted.
+    and records removed from supplied data are deleted.
     """
 
     with _lock:
@@ -164,7 +173,6 @@ def write_db(data):
         try:
             connection.start_transaction()
 
-            # Ensure every collection exists.
             for key in TABLES:
                 if key not in data or not isinstance(data[key], list):
                     raise ValueError(
@@ -202,7 +210,7 @@ def write_db(data):
                 else:
                     cursor.execute(f"DELETE FROM `{table}`")
 
-            # Insert and update parent records before child records.
+            # Insert and update records.
             for key, (table, primary_key) in TABLES.items():
 
                 for record in data[key]:
