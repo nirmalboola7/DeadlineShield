@@ -1,7 +1,13 @@
 
 from datetime import datetime, timezone
+
 from flask import Blueprint, request, jsonify, g
-from store import read_db, write_db, next_id
+
+from store import (
+    get_connection,
+    to_mysql_datetime,
+    to_json_datetime
+)
 from utils import login_required
 
 bp = Blueprint('activities', __name__, url_prefix='/api/activities')
@@ -14,31 +20,75 @@ VALID_PRIORITIES = {'Low', 'Medium', 'High'}
 
 VALID_STATUSES = {'Pending', 'In Progress', 'Completed'}
 
+ALLOWED_FIELDS = {
+    'title',
+    'description',
+    'activity_type',
+    'subject',
+    'due_date',
+    'priority',
+    'status'
+}
 
-def owned(items, activity_id, user_id):
-    return next(
-        (
-            a for a in items
-            if a['activity_id'] == activity_id
-            and a['user_id'] == user_id
-        ),
-        None
-    )
+
+def serialize_activity(item):
+    """Convert database datetime values into JSON-friendly strings."""
+
+    if not item:
+        return item
+
+    result = dict(item)
+
+    for field in ('due_date', 'created_at', 'completed_at'):
+        if field in result:
+            result[field] = to_json_datetime(result[field])
+
+    return result
+
+
+def validate_due_date(value):
+    """Validate and convert an ISO date into a MySQL UTC datetime."""
+
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Due date is required.")
+
+    try:
+        parsed = datetime.fromisoformat(
+            value.strip().replace('Z', '+00:00')
+        )
+        return to_mysql_datetime(parsed)
+
+    except (ValueError, TypeError):
+        raise ValueError("Due date must be a valid ISO date/time.")
 
 
 @bp.get('')
 @login_required
 def list_activities():
-    db = read_db()
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
 
-    items = [
-        a for a in db['activities']
-        if a['user_id'] == g.user['user_id']
-    ]
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM activities
+            WHERE user_id = %s
+            ORDER BY due_date ASC, activity_id DESC
+            """,
+            (g.user['user_id'],)
+        )
 
-    items.sort(key=lambda a: a.get('due_date', ''))
+        items = cursor.fetchall()
 
-    return jsonify(items)
+        return jsonify([
+            serialize_activity(item)
+            for item in items
+        ])
+
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @bp.post('')
@@ -47,126 +97,278 @@ def create_activity():
     data = request.get_json(silent=True) or {}
 
     title = str(data.get('title', '')).strip()
-    due_date = str(data.get('due_date', '')).strip()
     activity_type = data.get('activity_type', 'Assignment')
 
-    if not title or not due_date or activity_type not in VALID_TYPES:
-        return jsonify({
-            'error': 'Title, due date and a valid activity type are required.'
-        }), 400
+    if not title:
+        return jsonify({'error': 'Title is required.'}), 400
+
+    if not isinstance(activity_type, str) or activity_type not in VALID_TYPES:
+        return jsonify({'error': 'Invalid activity type.'}), 400
 
     try:
-        datetime.fromisoformat(due_date.replace('Z', '+00:00'))
-    except ValueError:
-        return jsonify({
-            'error': 'Due date must be a valid ISO date/time.'
-        }), 400
+        due_date = validate_due_date(data.get('due_date'))
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
 
-    db = read_db()
+    priority = data.get('priority', 'Medium')
 
-    item = {
-        'activity_id': next_id(db['activities'], 'activity_id'),
-        'user_id': g.user['user_id'],
-        'title': title,
-        'description': str(data.get('description', '')),
-        'activity_type': activity_type,
-        'subject': str(data.get('subject', '')),
-        'due_date': due_date,
-        'priority': (
-            data.get('priority')
-            if data.get('priority') in VALID_PRIORITIES
-            else 'Medium'
-        ),
-        # New activities always start as Pending.
-        'status': 'Pending',
-        'created_at': datetime.now(timezone.utc).isoformat()
-    }
+    if priority not in VALID_PRIORITIES:
+        priority = 'Medium'
 
-    db['activities'].append(item)
-    write_db(db)
+    created_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    return jsonify(item), 201
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        connection.start_transaction()
+
+        cursor.execute(
+            """
+            INSERT INTO activities (
+                user_id,
+                title,
+                description,
+                activity_type,
+                subject,
+                due_date,
+                priority,
+                status,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                g.user['user_id'],
+                title,
+                str(data.get('description') or ''),
+                activity_type,
+                str(data.get('subject') or ''),
+                due_date,
+                priority,
+                'Pending',
+                created_at
+            )
+        )
+
+        activity_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM activities
+            WHERE activity_id = %s AND user_id = %s
+            """,
+            (activity_id, g.user['user_id'])
+        )
+
+        item = cursor.fetchone()
+
+        connection.commit()
+
+        return jsonify(serialize_activity(item)), 201
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @bp.route('/<int:activity_id>', methods=['PUT', 'PATCH', 'DELETE'])
 @login_required
 def modify_activity(activity_id):
-    db = read_db()
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
 
-    item = owned(
-        db['activities'],
-        activity_id,
-        g.user['user_id']
-    )
+    try:
+        connection.start_transaction()
 
-    if not item:
-        return jsonify({'error': 'Activity not found.'}), 404
+        # Lock this user's activity while it is being modified.
+        cursor.execute(
+            """
+            SELECT *
+            FROM activities
+            WHERE activity_id = %s AND user_id = %s
+            FOR UPDATE
+            """,
+            (activity_id, g.user['user_id'])
+        )
 
-    # Delete activity
-    if request.method == 'DELETE':
-        db['activities'] = [
-            a for a in db['activities']
-            if a['activity_id'] != activity_id
-        ]
+        item = cursor.fetchone()
 
-        write_db(db)
+        if not item:
+            connection.rollback()
+            return jsonify({'error': 'Activity not found.'}), 404
 
-        return jsonify({'message': 'Activity deleted.'})
+        if request.method == 'DELETE':
+            cursor.execute(
+                """
+                DELETE FROM activities
+                WHERE activity_id = %s AND user_id = %s
+                """,
+                (activity_id, g.user['user_id'])
+            )
 
-    data = request.get_json(silent=True) or {}
+            connection.commit()
 
-    allowed = {
-        'title',
-        'description',
-        'activity_type',
-        'subject',
-        'due_date',
-        'priority',
-        'status'
-    }
+            return jsonify({'message': 'Activity deleted.'})
 
-    was_completed = item.get('status') == 'Completed'
+        data = request.get_json(silent=True) or {}
 
-    # Validate and update activity fields
-    for key, value in data.items():
+        was_completed = item.get('status') == 'Completed'
 
-        if key not in allowed:
-            continue
+        updates = {}
 
-        if key == 'activity_type' and value not in VALID_TYPES:
-            return jsonify({'error': 'Invalid activity type.'}), 400
+        for key, value in data.items():
 
-        if key == 'priority' and value not in VALID_PRIORITIES:
-            return jsonify({'error': 'Invalid priority.'}), 400
+            if key not in ALLOWED_FIELDS:
+                continue
 
-        if key == 'status' and value not in VALID_STATUSES:
-            return jsonify({'error': 'Invalid status.'}), 400
+            if key == 'title':
+                value = str(value or '').strip()
 
-        if key == 'due_date':
-            try:
-                datetime.fromisoformat(
-                    str(value).replace('Z', '+00:00')
+                if not value:
+                    connection.rollback()
+                    return jsonify({'error': 'Title cannot be empty.'}), 400
+
+            elif key == 'activity_type':
+                if not isinstance(value, str) or value not in VALID_TYPES:
+                    connection.rollback()
+                    return jsonify({'error': 'Invalid activity type.'}), 400
+
+            elif key == 'priority':
+                if value not in VALID_PRIORITIES:
+                    connection.rollback()
+                    return jsonify({'error': 'Invalid priority.'}), 400
+
+            elif key == 'status':
+                if value not in VALID_STATUSES:
+                    connection.rollback()
+                    return jsonify({'error': 'Invalid status.'}), 400
+
+            elif key == 'due_date':
+                try:
+                    value = validate_due_date(value)
+                except ValueError as error:
+                    connection.rollback()
+                    return jsonify({'error': str(error)}), 400
+
+            elif key in ('description', 'subject'):
+                value = str(value or '')
+
+            updates[key] = value
+
+        item.update(updates)
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # Record the first transition to Completed.
+        if not was_completed and item.get('status') == 'Completed':
+            item['completed_at'] = now
+            updates['completed_at'] = now
+
+        if updates:
+            set_clause = ', '.join(
+                f'`{column}` = %s'
+                for column in updates
+            )
+
+            values = [
+                to_mysql_datetime(value)
+                if column in ('due_date', 'completed_at')
+                else value
+                for column, value in updates.items()
+            ]
+
+            values.extend([
+                activity_id,
+                g.user['user_id']
+            ])
+
+            cursor.execute(
+                f"""
+                UPDATE activities
+                SET {set_clause}
+                WHERE activity_id = %s AND user_id = %s
+                """,
+                values
+            )
+
+        points_awarded = 0
+
+        # Award XP only on the first completion.
+        if not was_completed and item.get('status') == 'Completed':
+
+            from gamification import calculate_points
+
+            # Use ISO strings for the existing XP calculation.
+            points = calculate_points({
+                **item,
+                'due_date': to_json_datetime(item.get('due_date')),
+                'completed_at': to_json_datetime(item.get('completed_at'))
+            })
+
+            cursor.execute(
+                """
+                SELECT award_id
+                FROM completion_awards
+                WHERE activity_id = %s
+                LIMIT 1
+                """,
+                (activity_id,)
+            )
+
+            existing_award = cursor.fetchone()
+
+            if not existing_award:
+                cursor.execute(
+                    """
+                    INSERT INTO completion_awards (
+                        activity_id,
+                        user_id,
+                        activity_type,
+                        points,
+                        awarded_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        activity_id,
+                        g.user['user_id'],
+                        item.get('activity_type'),
+                        points,
+                        now
+                    )
                 )
-            except ValueError:
-                return jsonify({'error': 'Invalid due date.'}), 400
 
-        item[key] = value
+                points_awarded = points
 
-    points_awarded = 0
+        # Fetch the final database version.
+        cursor.execute(
+            """
+            SELECT *
+            FROM activities
+            WHERE activity_id = %s AND user_id = %s
+            """,
+            (activity_id, g.user['user_id'])
+        )
 
-    # Award XP only on the first transition to Completed.
-    if not was_completed and item.get('status') == 'Completed':
+        updated_item = cursor.fetchone()
 
-        from gamification import award_completion
+        connection.commit()
 
-        item['completed_at'] = datetime.now(timezone.utc).isoformat()
+        return jsonify({
+            'activity': serialize_activity(updated_item),
+            'points_awarded': points_awarded
+        })
 
-        points_awarded = award_completion(db, item)
+    except Exception:
+        connection.rollback()
+        raise
 
-    write_db(db)
-
-    return jsonify({
-        'activity': item,
-        'points_awarded': points_awarded
-    })
-
+    finally:
+        cursor.close()
+        connection.close()

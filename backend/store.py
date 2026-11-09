@@ -92,6 +92,25 @@ def get_connection():
     )
 
 
+
+def get_user_by_id(user_id):
+    """Fetch only one user by their primary key."""
+
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            "SELECT * FROM users WHERE user_id = %s LIMIT 1",
+            (user_id,)
+        )
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
 def to_mysql_datetime(value):
     """Convert ISO date strings into MySQL DATETIME values."""
 
